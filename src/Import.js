@@ -4,6 +4,8 @@ function importOldTracker_(t) {
   const props = PropertiesService.getScriptProperties();
   if (props.getProperty('imported')) return 0;
   const old = SpreadsheetApp.openById(CONFIG.OLD_SHEET_ID);
+  // Read dates in the old sheet's own time zone, or they can shift by a day.
+  const oldTz = old.getSpreadsheetTimeZone();
   const rows = [];
 
   CONFIG.OLD_TABS.forEach(tab => {
@@ -20,7 +22,8 @@ function importOldTracker_(t) {
     values.slice(h + 1).forEach(r => {
       const company = String(get(r, 'company')).trim();
       if (!company) return;
-      const rawDate = get(r, 'date applied');
+      let rawDate = get(r, 'date applied');
+      if (rawDate instanceof Date) rawDate = Utilities.formatDate(rawDate, oldTz, 'M/d/yyyy');
       const date = parseOldDate_(rawDate, tab.cycle);
       const status = mapOldStatus_(get(r, 'application status'));
       const notes = [String(get(r, 'details')).trim()];
@@ -46,6 +49,37 @@ function importOldTracker_(t) {
   sortTracker_(t);
   props.setProperty('imported', new Date().toISOString());
   return rows.length;
+}
+
+/**
+ * Clears the new tracker's rows, Review items and email log, then re-imports the old tracker and
+ * rescans Gmail from the start. Erases any edits made in the new sheet. The old sheet is not touched.
+ */
+function resetAndReimport() {
+  const ui = SpreadsheetApp.getUi();
+  if (ui.alert('Reset the new tracker?', 'This erases all rows in Tracker and Review (including edits you made here), ' +
+    're-imports your old tracker, and rescans Gmail from Oct 2025. Your old sheet is not touched.',
+    ui.ButtonSet.OK_CANCEL) !== ui.Button.OK) return;
+  const lock = LockService.getScriptLock();
+  lock.waitLock(6 * 60 * 1000); // wait for any running scan to finish
+  try {
+    const ss = SpreadsheetApp.getActive();
+    const t = loadTracker_();
+    if (t.sheet.getLastRow() > t.headerRow) t.sheet.deleteRows(t.headerRow + 1, t.sheet.getLastRow() - t.headerRow);
+    [CONFIG.SHEETS.REVIEW, CONFIG.SHEETS.LOG].forEach(name => {
+      const s = ss.getSheetByName(name);
+      if (s.getLastRow() > 1) s.deleteRows(2, s.getLastRow() - 1);
+    });
+    const props = PropertiesService.getScriptProperties();
+    props.deleteProperty('imported');
+    props.deleteProperty('scanCursor');
+    const fresh = loadTracker_();
+    const n = importOldTracker_(fresh);
+    finishRun_({ t: fresh }, null);
+    ui.alert('Re-imported ' + n + ' rows. Gmail scanning restarts on the next run.');
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 /**

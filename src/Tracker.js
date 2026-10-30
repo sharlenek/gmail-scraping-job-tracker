@@ -158,6 +158,55 @@ function applyFormatting_(t, cycles) {
   colRange('Interview').setDataValidation(list(INTERVIEW_VALUES));
   colRange('Date Applied').setNumberFormat('M/d/yyyy');
   colRange('Last Updated').setNumberFormat('M/d/yyyy');
+  applyColors_(t, n);
+}
+
+// Same colors as the old tracker. Earlier rules win, so OA/Interview cell colors sit on top of row colors.
+const RESULT_COLORS = [['Failed', '#e06666'], ['Not Completed', '#ffd966'], ['Passed', '#6aa84f'], ['Completed', '#b6d7a8']];
+const ROW_COLORS = [
+  ['Offer', '#6aa84f', true],
+  ['In Progress + Interview', '#b6d7a8'],
+  ['In Progress', '#ffd966'],
+  ['Submitted', '#76a5af'],
+  ['Rejected', '#e06666'],
+  ['Ghosted', '#e06666'],
+];
+
+// Replaces only the script's own color rules; conditional formatting you add is kept.
+function applyColors_(t, n) {
+  const first = t.headerRow + 1;
+  const status = '$' + colLetter_(t.col['Status']) + first;
+  const interview = '$' + colLetter_(t.col['Interview']) + first;
+  const resultCols = [t.col['OA'], t.col['Interview']];
+
+  const isOurs = rule => {
+    const c = rule.getBooleanCondition();
+    if (!c) return false;
+    const v = String(c.getCriteriaValues()[0] || '');
+    if (c.getCriteriaType() === SpreadsheetApp.BooleanCriteria.TEXT_CONTAINS) {
+      return RESULT_COLORS.some(rc => rc[0] === v) &&
+        rule.getRanges().every(r => resultCols.includes(r.getColumn()) && r.getNumColumns() === 1);
+    }
+    return c.getCriteriaType() === SpreadsheetApp.BooleanCriteria.CUSTOM_FORMULA &&
+      /^=(AND\()?\$[A-Z]+\d+="(Submitted|In Progress|Rejected|Ghosted|Offer)"/.test(v);
+  };
+
+  const rules = [];
+  RESULT_COLORS.forEach(([text, color]) => rules.push(SpreadsheetApp.newConditionalFormatRule()
+    .whenTextContains(text).setBackground(color)
+    .setRanges(resultCols.map(c => t.sheet.getRange(first, c, n, 1))).build()));
+  const rowRange = t.sheet.getRange(first, 1, n, t.lastCol);
+  ROW_COLORS.forEach(([name, color, bold]) => {
+    const formula = name === 'In Progress + Interview'
+      ? '=AND(' + status + '="In Progress",' + interview + '<>"")'
+      : '=' + status + '="' + name + '"';
+    const b = SpreadsheetApp.newConditionalFormatRule().whenFormulaSatisfied(formula).setBackground(color).setRanges([rowRange]);
+    if (bold) b.setBold(true);
+    rules.push(b.build());
+  });
+
+  const kept = t.sheet.getConditionalFormatRules().filter(r => !isOurs(r));
+  t.sheet.setConditionalFormatRules(rules.concat(kept));
 }
 
 function protectTop_(t) {

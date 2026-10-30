@@ -1,14 +1,18 @@
 // Gmail search that narrows the inbox to likely job emails before Gemini sees anything.
+// Broad words like "unfortunately" only count alongside application words, to keep marketing out.
 const SEARCH_TERMS = '{' + [
   '"thank you for applying"', '"thanks for applying"', '"application received"', '"received your application"',
-  '"your application"', '"application confirmation"', '"application submitted"', '"interest in"',
-  '"other candidates"', '"move forward"', '"moving forward"', '"unfortunately"',
-  '"online assessment"', '"coding challenge"', '"assessment"', 'hackerrank', 'codesignal', 'hirevue',
+  '"your application"', '"application confirmation"', '"application submitted"', '"your candidacy"',
+  '"other candidates"', '"online assessment"', '"coding challenge"', '"technical assessment"',
+  '(unfortunately {application position role candidacy})',
+  '("move forward" {application position role candidacy})',
+  '(assessment {intern internship engineer developer analyst})',
+  'hackerrank', 'codesignal', 'hirevue',
   'from:greenhouse-mail.io', 'from:greenhouse.io', 'from:lever.co', 'from:ashbyhq.com', 'from:myworkday.com',
   'from:icims.com', 'from:smartrecruiters.com', 'from:successfactors.com', 'from:taleo.net', 'from:jobvite.com',
   'from:workablemail.com', 'from:joinhandshake.com', 'from:jobs-noreply@linkedin.com',
   'from:hackerrankforwork.com', 'from:codesignal.com', 'from:hirevue.com',
-].join(' ') + '} -in:sent -in:chats -in:spam -in:trash';
+].join(' ') + '} -category:promotions -category:social -in:sent -in:chats -in:spam -in:trash';
 
 const DAY_MS = 24 * 3600 * 1000;
 

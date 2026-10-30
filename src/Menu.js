@@ -5,6 +5,7 @@ function onOpen() {
     .addItem('First-time setup', 'setup')
     .addItem('Set Gemini API key…', 'setGeminiKey')
     .addItem('Check against old "Missing Applications" list', 'checkAgainstOldList')
+    .addItem('Reset and re-import…', 'resetAndReimport')
     .addSeparator()
     .addItem('Stop automatic runs', 'stopTriggers')
     .addToUi();

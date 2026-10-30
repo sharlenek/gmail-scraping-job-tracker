@@ -19,7 +19,7 @@ const CONFIG = {
   EMAILS_PER_REQUEST: 10,
   BODY_CHARS: 2000,
 
-  RUN_BUDGET_MS: 4.5 * 60 * 1000, // Apps Script stops runs at 6 minutes
+  RUN_BUDGET_MS: 3 * 60 * 1000, // Apps Script kills runs at 6 minutes; a batch can take over a minute
   TRIGGER_MINUTES: 15,
   SCAN_WINDOW_DAYS: 30,
   LABEL: 'JobTracker/Processed',
